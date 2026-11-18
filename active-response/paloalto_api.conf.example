@@ -1,0 +1,13 @@
+[paloalto]
+# Palo Alto management IP reachable from the Wazuh manager
+firewall = 10.0.0.1
+# API key: https://<fw>/api/?type=keygen&user=<user>&password=<pass>
+api_key = PASTE_YOUR_API_KEY_HERE
+vsys = vsys1
+tag = wazuh-blocked
+# auto-expire the block after this many seconds
+tag_timeout = 3600
+# set to yes in production with a trusted certificate
+verify_tls = no
+# comma-separated IPs that must never be blocked
+whitelist =

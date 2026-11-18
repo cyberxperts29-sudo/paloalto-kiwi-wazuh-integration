@@ -1,0 +1,108 @@
+<!--
+  Palo Alto PAN-OS 11 custom rules for Wazuh 4.14.x
+  IDs 110200-110299. Author: Muhammad Ahmad Abid.
+  Requires the patched Palo Alto decoder (see /decoders).
+-->
+
+<!-- ===== Traffic / port-scan detection ===== -->
+<group name="paloalto,custom,">
+
+  <rule id="110200" level="3">
+    <if_sid>64508</if_sid>
+    <description>Palo Alto: traffic denied from $(source_address) ($(source_country)) to port $(destination_port)</description>
+    <group>firewall_drop,</group>
+  </rule>
+
+  <rule id="110201" level="5">
+    <if_sid>110200</if_sid>
+    <field name="destination_port">^22$|^23$|^445$|^1433$|^3306$|^3389$|^5900$</field>
+    <description>Palo Alto: probe on sensitive port $(destination_port) from $(source_address) ($(source_country))</description>
+    <mitre><id>T1046</id></mitre>
+    <group>firewall_drop,recon,</group>
+  </rule>
+
+  <rule id="110202" level="10" frequency="15" timeframe="60">
+    <if_matched_sid>110200</if_matched_sid>
+    <same_field>source_address</same_field>
+    <different_field>destination_port</different_field>
+    <description>Palo Alto: port scan detected from $(source_address) ($(source_country))</description>
+    <mitre><id>T1046</id></mitre>
+    <group>recon,attack,</group>
+  </rule>
+
+</group>
+
+<!-- ===== Configuration-change detection (fills the level-0 gap) ===== -->
+<group name="paloalto,custom,config_change,">
+
+  <rule id="110210" level="3">
+    <if_sid>64500</if_sid>
+    <field name="admin" type="pcre2">.+</field>
+    <description>Palo Alto: admin $(admin) ran '$(command)' on '$(configuration_path)' via $(client) from $(host)</description>
+  </rule>
+
+  <rule id="110211" level="5">
+    <if_sid>110210</if_sid>
+    <field name="command" type="pcre2">^(set|edit|delete|rename|move|clone)$</field>
+    <field name="result">^Succeeded$</field>
+    <description>Palo Alto: config changed by $(admin) - $(command) $(configuration_path)</description>
+    <mitre><id>T1562.004</id></mitre>
+  </rule>
+
+  <rule id="110212" level="6">
+    <if_sid>110210</if_sid>
+    <field name="command">^commit$</field>
+    <description>Palo Alto: configuration commit by $(admin) from $(host)</description>
+  </rule>
+
+  <rule id="110213" level="10">
+    <if_sid>110211</if_sid>
+    <field name="configuration_path" type="pcre2">rulebase security|log-settings|syslog|log-forwarding|zone-protection</field>
+    <description>Palo Alto: security-critical setting changed by $(admin) - $(command) $(configuration_path)</description>
+    <mitre><id>T1562.004</id></mitre>
+  </rule>
+
+  <rule id="110214" level="12">
+    <if_sid>110213</if_sid>
+    <field name="command">^delete$</field>
+    <field name="configuration_path" type="pcre2">syslog|log-settings|log-forwarding</field>
+    <description>Palo Alto: logging config DELETED by $(admin) - possible log tampering</description>
+    <mitre><id>T1562.006</id></mitre>
+  </rule>
+
+  <rule id="110215" level="5">
+    <if_sid>110210</if_sid>
+    <field name="result">^Failed$</field>
+    <description>Palo Alto: failed config attempt by $(admin) - $(command) $(configuration_path)</description>
+  </rule>
+
+</group>
+
+<!-- ===== Threat / exploit detection (triggers auto-block) ===== -->
+<group name="paloalto,custom,threat,">
+
+  <rule id="110220" level="12">
+    <if_sid>64504</if_sid>
+    <field name="threat_content_type">^vulnerability$</field>
+    <description>Palo Alto: critical vulnerability exploit blocked - $(threat_id) from $(source_address) ($(source_location))</description>
+    <mitre><id>T1190</id></mitre>
+    <group>exploit,attack,</group>
+  </rule>
+
+  <rule id="110221" level="13">
+    <if_sid>110220</if_sid>
+    <field name="source_zone">^untrust$</field>
+    <description>Palo Alto: exploit against public-facing app from Internet blocked - $(threat_id) src $(source_address) to $(destination_address):$(destination_port)</description>
+    <mitre><id>T1190</id></mitre>
+    <group>exploit,attack,public_facing,</group>
+  </rule>
+
+  <rule id="110222" level="14" frequency="5" timeframe="120">
+    <if_matched_sid>110220</if_matched_sid>
+    <same_field>source_address</same_field>
+    <description>Palo Alto: repeated exploit attempts from $(source_address) - active attacker targeting public app</description>
+    <mitre><id>T1190</id></mitre>
+    <group>exploit,attack,</group>
+  </rule>
+
+</group>

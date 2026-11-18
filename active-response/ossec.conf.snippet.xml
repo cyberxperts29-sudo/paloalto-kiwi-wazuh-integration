@@ -1,0 +1,27 @@
+<!-- Add inside <ossec_config> in /var/ossec/etc/ossec.conf on the Wazuh manager -->
+
+<!-- 1. Receive syslog forwarded by Kiwi (allow only the Kiwi relay IP) -->
+<remote>
+  <connection>syslog</connection>
+  <port>514</port>
+  <protocol>udp</protocol>
+  <allowed-ips>KIWI_PRIVATE_IP/32</allowed-ips>
+</remote>
+
+<!-- 2. Keep a full JSON archive (used for decoder testing) -->
+<!-- <logall_json>yes</logall_json>  (set in the <global> block) -->
+
+<!-- 3. Register the Active Response script -->
+<command>
+  <name>paloalto-block</name>
+  <executable>paloalto-block.py</executable>
+  <timeout_allowed>yes</timeout_allowed>
+</command>
+
+<!-- 4. Run it on port scan (110202) and exploit (110221/110222); auto-unblock after 1h -->
+<active-response>
+  <command>paloalto-block</command>
+  <location>server</location>
+  <rules_id>110202,110221,110222</rules_id>
+  <timeout>3600</timeout>
+</active-response>
